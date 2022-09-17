@@ -211,8 +211,6 @@ namespace PSRule.Pipeline
 
         public sealed override IPipeline Build(IPipelineWriter writer = null)
         {
-            writer ??= PrepareWriter();
-            Unblock(writer);
             return !RequireModules() || !RequireSources()
                 ? null
                 : (IPipeline)new InvokeRulePipeline(

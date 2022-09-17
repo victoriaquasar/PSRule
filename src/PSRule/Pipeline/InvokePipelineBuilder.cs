@@ -1,13 +1,8 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
 using PSRule.Configuration;
 using PSRule.Data;
-using PSRule.Host;
 
 namespace PSRule.Pipeline
 {
@@ -27,20 +22,12 @@ namespace PSRule.Pipeline
         /// </summary>
         /// <param name="variableName">The name of the variable to set.</param>
         void ResultVariable(string variableName);
-
-        /// <summary>
-        /// Unblocks PowerShell sources from trusted publishers that originate from an Internet zone.
-        /// </summary>
-        /// <param name="publisher">The trusted publisher to unblock.</param>
-        void UnblockPublisher(string publisher);
     }
 
     internal abstract class InvokePipelineBuilderBase : PipelineBuilderBase, IInvokePipelineBuilder
     {
         protected InputFileInfo[] _InputPath;
         protected string _ResultVariableName;
-
-        private List<string> _TrustedPublishers;
 
         protected InvokePipelineBuilderBase(Source[] source, IHostContext hostContext)
             : base(source, hostContext)
@@ -61,15 +48,6 @@ namespace PSRule.Pipeline
         public void ResultVariable(string variableName)
         {
             _ResultVariableName = variableName;
-        }
-
-        public void UnblockPublisher(string publisher)
-        {
-            if (Environment.OSVersion.Platform != PlatformID.Win32NT)
-                return;
-
-            _TrustedPublishers ??= new List<string>();
-            _TrustedPublishers.Add(publisher);
         }
 
         public override IPipelineBuilder Configure(PSRuleOption option)
@@ -107,44 +85,9 @@ namespace PSRule.Pipeline
 
         public override IPipeline Build(IPipelineWriter writer = null)
         {
-            writer ??= PrepareWriter();
-            Unblock(writer);
             return !RequireModules() || !RequireSources()
                 ? null
-                : (IPipeline)new InvokeRulePipeline(PrepareContext(BindTargetNameHook, BindTargetTypeHook, BindFieldHook), Source, writer, Option.Output.Outcome.Value);
-        }
-
-        protected void Unblock(IPipelineWriter writer)
-        {
-            if (Source == null || Source.Length == 0 ||
-                _TrustedPublishers == null || _TrustedPublishers.Count == 0 ||
-                Environment.OSVersion.Platform != PlatformID.Win32NT)
-                return;
-
-            var files = new List<string>();
-            for (var i = 0; i < Source.Length; i++)
-            {
-                for (var j = 0; j < Source[i].File.Length; j++)
-                {
-                    if (Source[i].File[j].Type == SourceType.Script && IsBlocked(Source[i].File[j].Path))
-                        files.Add(Source[i].File[j].Path);
-                }
-            }
-            if (files.Count > 0)
-                HostHelper.UnblockFile(writer, _TrustedPublishers.ToArray(), files.ToArray());
-        }
-
-        private static bool IsBlocked(string path)
-        {
-            try
-            {
-                var zone = File.ReadLines(string.Concat(path, ":Zone.Identifier")).FirstOrDefault(s => s.StartsWith("ZoneId="));
-                return zone != null;
-            }
-            catch
-            {
-                return false;
-            }
+                : (IPipeline)new InvokeRulePipeline(PrepareContext(BindTargetNameHook, BindTargetTypeHook, BindFieldHook), Source, writer ?? PrepareWriter(), Option.Output.Outcome.Value);
         }
 
         protected override PipelineReader PrepareReader()

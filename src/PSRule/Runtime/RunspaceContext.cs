@@ -402,8 +402,9 @@ namespace PSRule.Runtime
         private static void Debug_DataAdded(object sender, DataAddedEventArgs e)
         {
             if (CurrentThread.Writer == null)
+            {
                 return;
-
+            }
             var collection = sender as PSDataCollection<DebugRecord>;
             var record = collection[e.Index];
             CurrentThread.Writer.WriteDebug(debugRecord: record);
